@@ -33,7 +33,9 @@ async function run() {
       const newUser = req.body;
 
       try {
-        const existingUser = await userCollection.findOne({ email: newUser.email });
+        const existingUser = await userCollection.findOne({
+          email: newUser.email,
+        });
         if (existingUser) {
           return res.status(400).json({ message: "Email already exists" });
         }
@@ -61,6 +63,31 @@ async function run() {
       }
     });
 
+    app.get("/posts", async (req, res) => {
+      const { page = 1, limit = 5 } = req.query;
+      const skip = (page - 1) * limit;
+    
+      try {
+        const posts = await postCollection
+          .find({})
+          .skip(skip)
+          .limit(Number(limit))
+          .toArray();
+    
+        const totalPosts = await postCollection.countDocuments();
+    
+        res.status(200).json({
+          message: "Posts fetched successfully!",
+          posts,
+          totalPosts,
+          totalPages: Math.ceil(totalPosts / limit),
+          currentPage: page,
+        });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
   } finally {
     //await client.close();
   }
