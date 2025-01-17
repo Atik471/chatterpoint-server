@@ -64,12 +64,14 @@ async function run() {
     });
 
     app.get("/posts", async (req, res) => {
-      const { page = 1, limit = 5 } = req.query;
+      const { page = 1, limit = 5, tag } = req.query;
       const skip = (page - 1) * limit;
 
       try {
+        const filter = tag ? { tags: tag } : {};
+
         const posts = await postCollection
-          .find({})
+          .find(filter)
           .skip(skip)
           .limit(Number(limit))
           .toArray();
@@ -103,6 +105,43 @@ async function run() {
           return res.status(404).json({ message: "Post not found" });
         }
         res.status(200).json(post);
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+    app.post("/post/:id/vote", async (req, res) => {
+      const id = req.params.id;
+      const vote = req.body.vote;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid Post ID format" });
+      }
+
+      if (vote !== 1 && vote !== -1) {
+        return res
+          .status(400)
+          .json({ message: "Invalid vote value. Must be 1 or -1." });
+      }
+
+      try {
+        const objectId = new ObjectId(id);
+        const post = await postCollection.findOne({ _id: objectId });
+
+        if (!post) {
+          return res.status(404).json({ message: "Post not found" });
+        }
+
+        const updateField = vote === 1 ? { upvote: 1 } : { downvote: -1 };
+        const result = await postCollection.updateOne(
+          { _id: objectId },
+          { $inc: updateField }
+        );
+
+        res
+          .status(200)
+          .json({ message: "Vote updated successfully!", result: result });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
