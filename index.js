@@ -20,8 +20,8 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    //await client.connect();
+    //await client.db("admin").command({ ping: 1 });
     const ChatterPoint = client.db("ChatterPoint");
     const userCollection = ChatterPoint.collection("users");
     const postCollection = ChatterPoint.collection("posts");
@@ -100,6 +100,71 @@ async function run() {
           totalPosts,
           totalPages: Math.ceil(totalPosts / limit),
           currentPage: page,
+        });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+
+    app.get("/my-posts/:email", async (req, res) => {
+      const email = req.params.email;
+      const { page = 1 } = req.query;
+      const limit = 3;
+      const skip = (page - 1) * limit;
+    
+      try {
+        const filter = { email };
+    
+        const posts = await postCollection
+          .find(filter)
+          .sort({ date: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+    
+        const totalPosts = await postCollection.countDocuments(filter);
+    
+        res.status(200).json({
+          message: "Posts fetched successfully!",
+          posts,
+          totalPosts,
+          totalPages: Math.ceil(totalPosts / limit),
+          currentPage: Number(page),
+        });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+        
+    app.get("/posts", async (req, res) => {
+      const { page = 1, email } = req.query;
+      const limit = 3; // Fixed limit to 3 posts per page
+      const skip = (page - 1) * limit;
+    
+      try {
+        // Build filter: fetch posts by email if provided
+        const filter = email ? { email } : {};
+    
+        // Fetch posts from the collection
+        const posts = await postCollection
+          .find(filter)
+          .sort({ date: -1 }) // Sort by 'date' field in descending order
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+    
+        // Get total number of posts matching the filter
+        const totalPosts = await postCollection.countDocuments(filter);
+    
+        res.status(200).json({
+          message: "Posts fetched successfully!",
+          posts,
+          totalPosts,
+          totalPages: Math.ceil(totalPosts / limit),
+          currentPage: Number(page),
         });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
