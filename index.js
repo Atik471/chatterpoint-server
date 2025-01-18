@@ -54,11 +54,11 @@ async function run() {
       try {
         const email = req.params.email;
         const user = await userCollection.findOne({ email });
-        
+
         if (!user) {
           return res.status(404).json({ message: "User not found" });
         }
-    
+
         res.status(200).json(user);
       } catch (error) {
         console.error(error);
@@ -109,28 +109,27 @@ async function run() {
       }
     });
 
-
     app.get("/my-posts/:email", async (req, res) => {
       const email = req.params.email;
       const { page = 1, limit = 5 } = req.query;
       const skip = (Number(page) - 1) * Number(limit);
-    
+
       try {
         if (!email) {
           return res.status(400).json({ message: "Email is required" });
         }
 
         const filter = { email };
-    
+
         const posts = await postCollection
           .find(filter)
           .sort({ _id: -1 })
           .skip(skip)
           .limit(Number(limit))
           .toArray();
-    
+
         const totalPosts = await postCollection.countDocuments(filter);
-    
+
         res.status(200).json({
           message: "Posts fetched successfully!",
           posts,
@@ -203,9 +202,20 @@ async function run() {
 
     app.post("/comment", async (req, res) => {
       const newComment = req.body;
+      const postId = newComment.post;
 
       try {
         const result = await commentCollection.insertOne(newComment);
+
+        const updateResult = await postCollection.updateOne(
+          { _id: new ObjectId(postId) },
+          { $inc: { comments: 1 } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          return res.status(404).json({ message: "Post not found." });
+        }
+
         res
           .status(201)
           .json({ message: "Comment submitted successfully!", result: result });
@@ -214,7 +224,6 @@ async function run() {
         console.log(error);
       }
     });
-
   } finally {
     //await client.close();
   }
