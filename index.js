@@ -224,6 +224,24 @@ async function run() {
         console.log(error);
       }
     });
+
+    app.get("/comments/:post", async (req, res) => {
+      const postId = req.params.post;
+
+      try {
+        const comments = await commentCollection
+          .find({ post: postId })
+          .toArray();
+
+        res.status(200).json({
+          message: "Comments fetched successfully!",
+          comments,
+        });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
   } finally {
     //await client.close();
   }
