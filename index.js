@@ -122,7 +122,7 @@ async function run() {
     
         const posts = await postCollection
           .find(filter)
-          .sort({ date: -1 })
+          .sort({ _id: -1 })
           .skip(skip)
           .limit(Number(limit))
           .toArray();
