@@ -110,53 +110,23 @@ async function run() {
 
     app.get("/my-posts/:email", async (req, res) => {
       const email = req.params.email;
-      const { page = 1 } = req.query;
-      const limit = 3;
-      const skip = (page - 1) * limit;
+      const { page = 1, limit = 5 } = req.query;
+      const skip = (Number(page) - 1) * Number(limit);
     
       try {
+        if (!email) {
+          return res.status(400).json({ message: "Email is required" });
+        }
+
         const filter = { email };
     
         const posts = await postCollection
           .find(filter)
           .sort({ date: -1 })
           .skip(skip)
-          .limit(limit)
+          .limit(Number(limit))
           .toArray();
     
-        const totalPosts = await postCollection.countDocuments(filter);
-    
-        res.status(200).json({
-          message: "Posts fetched successfully!",
-          posts,
-          totalPosts,
-          totalPages: Math.ceil(totalPosts / limit),
-          currentPage: Number(page),
-        });
-      } catch (error) {
-        res.status(500).json({ message: "Server error. Please try again." });
-        console.log(error);
-      }
-    });
-        
-    app.get("/posts", async (req, res) => {
-      const { page = 1, email } = req.query;
-      const limit = 3; // Fixed limit to 3 posts per page
-      const skip = (page - 1) * limit;
-    
-      try {
-        // Build filter: fetch posts by email if provided
-        const filter = email ? { email } : {};
-    
-        // Fetch posts from the collection
-        const posts = await postCollection
-          .find(filter)
-          .sort({ date: -1 }) // Sort by 'date' field in descending order
-          .skip(skip)
-          .limit(limit)
-          .toArray();
-    
-        // Get total number of posts matching the filter
         const totalPosts = await postCollection.countDocuments(filter);
     
         res.status(200).json({
