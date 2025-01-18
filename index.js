@@ -49,6 +49,22 @@ async function run() {
       }
     });
 
+    app.get("/user/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const user = await userCollection.findOne({ email });
+        
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+    
+        res.status(200).json(user);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     app.post("/posts", async (req, res) => {
       const newPost = req.body;
 
@@ -111,7 +127,7 @@ async function run() {
       }
     });
 
-    app.post("/post/:id/vote", async (req, res) => {
+    /*app.post("/post/:id/vote", async (req, res) => {
       const id = req.params.id;
       const vote = req.body.vote;
 
@@ -146,7 +162,7 @@ async function run() {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
       }
-    });
+    });*/
   } finally {
     //await client.close();
   }
