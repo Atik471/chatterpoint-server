@@ -25,6 +25,7 @@ async function run() {
     const ChatterPoint = client.db("ChatterPoint");
     const userCollection = ChatterPoint.collection("users");
     const postCollection = ChatterPoint.collection("posts");
+    const commentCollection = ChatterPoint.collection("comments");
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
@@ -88,6 +89,7 @@ async function run() {
 
         const posts = await postCollection
           .find(filter)
+          .sort({ _id: -1 })
           .skip(skip)
           .limit(Number(limit))
           .toArray();
@@ -198,6 +200,21 @@ async function run() {
         console.log(error);
       }
     });*/
+
+    app.post("/comment", async (req, res) => {
+      const newComment = req.body;
+
+      try {
+        const result = await commentCollection.insertOne(newComment);
+        res
+          .status(201)
+          .json({ message: "Comment submitted successfully!", result: result });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
   } finally {
     //await client.close();
   }
