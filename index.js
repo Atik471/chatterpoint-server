@@ -231,6 +231,7 @@ async function run() {
       try {
         const comments = await commentCollection
           .find({ post: postId })
+          .sort({ _id: -1 })
           .toArray();
 
         res.status(200).json({
@@ -240,6 +241,46 @@ async function run() {
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
+      }
+    });
+
+    app.get("/users", async (req, res) => {
+      try {
+        const users = await userCollection.find().toArray();
+
+        res.status(200).json(users);
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+    app.put("/user/update-role/:id", async (req, res) => {
+      const userId = req.params.id;
+      const { role } = req.body;
+
+      if (!ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "Invalid user ID format." });
+      }
+
+      try {
+        const filter = { _id: new ObjectId(userId) };
+        const updateDoc = {
+          $set: { role: role },
+        };
+
+        const result = await userCollection.updateOne(filter, updateDoc);
+
+        if (result.modifiedCount === 0) {
+          return res
+            .status(404)
+            .json({ message: "User not found or role unchanged." });
+        }
+
+        res.status(200).json({ message: "User role updated successfully!" });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to update user role." });
       }
     });
   } finally {
