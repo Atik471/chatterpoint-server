@@ -316,6 +316,56 @@ async function run() {
         console.log(error);
       }
     });
+
+    app.get("/report", async (req, res) => {
+      try {
+        const reports = await reportCollection.find().toArray();
+
+        res.status(200).json(reports);
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+    app.delete("/report", async (req, res) => {
+      let reportId = req.body.reportId;
+      let commentId = req.body.commentId;
+      const action = req.body.action;
+    
+      try {
+        if (!ObjectId.isValid(reportId && commentId)) {
+          return res.status(400).json({ message: "Invalid ID format." });
+        }
+    
+        reportId = new ObjectId(reportId);
+        commentId = new ObjectId(commentId);
+
+        if(action === 'report'){
+          const resultReport = await reportCollection.deleteOne({ _id: reportId });
+          if (resultReport.deletedCount === 1) {
+            res.status(200).json({ message: "Report deleted successfully." });
+          } else {
+            res.status(404).json({ message: "Report not found." });
+          }
+        }
+
+        if(action === 'comment'){
+          const resultComment = await commentCollection.deleteOne({ _id: commentId });
+          const resultReport = await reportCollection.deleteOne({ _id: reportId });
+
+          if (resultComment.deletedCount === 1) {
+            res.status(200).json({ message: "Comment deleted successfully." });
+          } else {
+            res.status(404).json({ message: "Comment not found." });
+          }
+        }
+    
+      } catch (error) {
+        console.error("Error deleting:", error);
+        res.status(500).json({ message: "Server error. Please try again." });
+      }
+    });
   } finally {
     //await client.close();
   }
