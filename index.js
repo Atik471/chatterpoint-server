@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.SK_STRIPE);
+
 
 const app = express();
 
@@ -17,6 +19,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
 
 async function run() {
   try {
@@ -366,6 +369,50 @@ async function run() {
         res.status(500).json({ message: "Server error. Please try again." });
       }
     });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { amount, id } = req.body;
+    
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ['card'],
+        });
+  
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } catch (error) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).send({ error: 'Failed to create payment intent' });
+      }
+    });
+
+    app.put('/update-badges', async (req, res) => {
+      const { userId } = req.body;
+
+    
+      if (!userId) {
+        return res.status(400).send({ error: 'User ID required' });
+      }
+    
+      try {
+        await userCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          {  $push: { badges: 'gold' } }
+        );
+    
+        res.send({
+          message: 'User badges updated successfully'
+        });
+    
+      } catch (error) {
+        console.error('Error updating user badges:', error);
+        res.status(500).send({ error: 'Failed to update user badges' });
+      }
+    });
+    
   } finally {
     //await client.close();
   }
