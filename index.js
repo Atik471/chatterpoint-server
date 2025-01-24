@@ -26,6 +26,8 @@ async function run() {
     const userCollection = ChatterPoint.collection("users");
     const postCollection = ChatterPoint.collection("posts");
     const commentCollection = ChatterPoint.collection("comments");
+    const announcementCollection = ChatterPoint.collection("announcements");
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
@@ -281,6 +283,21 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to update user role." });
+      }
+    });
+
+    app.post("/announcements", async (req, res) => {
+      const newAnnouncement = req.body;
+
+      try {
+        const result = await announcementCollection.insertOne(newAnnouncement);
+
+        res
+          .status(201)
+          .json({ message: "Announcement posted successfully!", result: result });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
       }
     });
   } finally {
