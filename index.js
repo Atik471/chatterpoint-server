@@ -27,6 +27,7 @@ async function run() {
     const postCollection = ChatterPoint.collection("posts");
     const commentCollection = ChatterPoint.collection("comments");
     const announcementCollection = ChatterPoint.collection("announcements");
+    const reportCollection = ChatterPoint.collection("reports");
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -295,6 +296,21 @@ async function run() {
         res
           .status(201)
           .json({ message: "Announcement posted successfully!", result: result });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+    app.post("/report", async (req, res) => {
+      const newReport = req.body;
+
+      try {
+        const result = await reportCollection.insertOne(newReport);
+
+        res
+          .status(201)
+          .json({ message: "Report submitted successfully!", result: result });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
