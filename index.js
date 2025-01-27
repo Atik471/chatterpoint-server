@@ -412,6 +412,17 @@ async function run() {
         res.status(500).send({ error: 'Failed to update user badges' });
       }
     });
+
+    app.get("/announcements", async (req, res) => {
+      try {
+        const announcements = await announcementCollection.find().toArray();
+
+        res.status(200).json(announcements);
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
     
   } finally {
     //await client.close();
