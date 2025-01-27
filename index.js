@@ -3,7 +3,6 @@ const cors = require("cors");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.SK_STRIPE);
 
-
 const app = express();
 
 app.use(cors());
@@ -19,7 +18,6 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
-
 
 async function run() {
   try {
@@ -233,7 +231,7 @@ async function run() {
 
     app.get("/comments/:post", async (req, res) => {
       const postId = req.params.post;
-      const { page = 1, limit = 5} = req.query;
+      const { page = 1, limit = 5 } = req.query;
       const skip = (page - 1) * limit;
 
       try {
@@ -244,7 +242,9 @@ async function run() {
           .limit(Number(limit))
           .toArray();
 
-        const totalComments = await commentCollection.countDocuments({ post: postId });
+        const totalComments = await commentCollection.countDocuments({
+          post: postId,
+        });
 
         res.status(200).json({
           message: "Comments fetched successfully!",
@@ -260,10 +260,24 @@ async function run() {
     });
 
     app.get("/users", async (req, res) => {
+      const { page = 1, limit = 5 } = req.query;
+      const skip = (page - 1) * limit;
       try {
-        const users = await userCollection.find().toArray();
+        const users = await userCollection
+          .find()
+          .skip(skip)
+          .limit(Number(limit))
+          .toArray();
 
-        res.status(200).json(users);
+        const totalUsers = await userCollection.countDocuments({});
+
+        res.status(200).json({
+          message: "Comments fetched successfully!",
+          users,
+          totalUsers,
+          totalPages: Math.ceil(totalUsers / limit),
+          currentPage: page,
+        });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
@@ -307,7 +321,10 @@ async function run() {
 
         res
           .status(201)
-          .json({ message: "Announcement posted successfully!", result: result });
+          .json({
+            message: "Announcement posted successfully!",
+            result: result,
+          });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
@@ -344,17 +361,19 @@ async function run() {
       let reportId = req.body.reportId;
       let commentId = req.body.commentId;
       const action = req.body.action;
-    
+
       try {
         if (!ObjectId.isValid(reportId && commentId)) {
           return res.status(400).json({ message: "Invalid ID format." });
         }
-    
+
         reportId = new ObjectId(reportId);
         commentId = new ObjectId(commentId);
 
-        if(action === 'report'){
-          const resultReport = await reportCollection.deleteOne({ _id: reportId });
+        if (action === "report") {
+          const resultReport = await reportCollection.deleteOne({
+            _id: reportId,
+          });
           if (resultReport.deletedCount === 1) {
             res.status(200).json({ message: "Report deleted successfully." });
           } else {
@@ -362,9 +381,13 @@ async function run() {
           }
         }
 
-        if(action === 'comment'){
-          const resultComment = await commentCollection.deleteOne({ _id: commentId });
-          const resultReport = await reportCollection.deleteOne({ _id: reportId });
+        if (action === "comment") {
+          const resultComment = await commentCollection.deleteOne({
+            _id: commentId,
+          });
+          const resultReport = await reportCollection.deleteOne({
+            _id: reportId,
+          });
 
           if (resultComment.deletedCount === 1) {
             res.status(200).json({ message: "Comment deleted successfully." });
@@ -372,7 +395,6 @@ async function run() {
             res.status(404).json({ message: "Comment not found." });
           }
         }
-    
       } catch (error) {
         console.error("Error deleting:", error);
         res.status(500).json({ message: "Server error. Please try again." });
@@ -381,44 +403,42 @@ async function run() {
 
     app.post("/create-payment-intent", async (req, res) => {
       const { amount, id } = req.body;
-    
+
       try {
         const paymentIntent = await stripe.paymentIntents.create({
           amount: amount,
           currency: "usd",
-          payment_method_types: ['card'],
+          payment_method_types: ["card"],
         });
-  
+
         res.send({
           clientSecret: paymentIntent.client_secret,
         });
       } catch (error) {
-        console.error('Error creating payment intent:', error);
-        res.status(500).send({ error: 'Failed to create payment intent' });
+        console.error("Error creating payment intent:", error);
+        res.status(500).send({ error: "Failed to create payment intent" });
       }
     });
 
-    app.put('/update-badges', async (req, res) => {
+    app.put("/update-badges", async (req, res) => {
       const { userId } = req.body;
 
-    
       if (!userId) {
-        return res.status(400).send({ error: 'User ID required' });
+        return res.status(400).send({ error: "User ID required" });
       }
-    
+
       try {
         await userCollection.updateOne(
           { _id: new ObjectId(userId) },
-          {  $push: { badges: 'gold' } }
+          { $push: { badges: "gold" } }
         );
-    
+
         res.send({
-          message: 'User badges updated successfully'
+          message: "User badges updated successfully",
         });
-    
       } catch (error) {
-        console.error('Error updating user badges:', error);
-        res.status(500).send({ error: 'Failed to update user badges' });
+        console.error("Error updating user badges:", error);
+        res.status(500).send({ error: "Failed to update user badges" });
       }
     });
 
@@ -433,44 +453,41 @@ async function run() {
       }
     });
 
-    app.get('/post-count/:email', async (req, res) => {
+    app.get("/post-count/:email", async (req, res) => {
       const { email } = req.params;
-    
+
       if (!email) {
-        return res.status(400).send({ error: 'User email is required' });
+        return res.status(400).send({ error: "User email is required" });
       }
-    
+
       try {
         const postCount = await postCollection.countDocuments({ email: email });
-    
+
         res.status(200).send({
           postCount: postCount,
         });
       } catch (error) {
-        console.error('Error fetching posts count:', error);
-        res.status(500).send({ error: 'Failed to fetch posts count' });
+        console.error("Error fetching posts count:", error);
+        res.status(500).send({ error: "Failed to fetch posts count" });
       }
     });
 
-    app.get('/stats', async (req, res) => {
-
+    app.get("/stats", async (req, res) => {
       try {
         const postCount = await postCollection.countDocuments({});
         const userCount = await userCollection.countDocuments({});
         const commentCount = await commentCollection.countDocuments({});
-    
+
         res.status(200).send({
           userCount,
           postCount,
-          commentCount
+          commentCount,
         });
       } catch (error) {
-        console.error('Error fetching posts count:', error);
-        res.status(500).send({ error: 'Failed to fetch posts count' });
+        console.error("Error fetching posts count:", error);
+        res.status(500).send({ error: "Failed to fetch posts count" });
       }
     });
-    
-    
   } finally {
     //await client.close();
   }
