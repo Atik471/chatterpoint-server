@@ -423,6 +423,24 @@ async function run() {
         console.log(error);
       }
     });
+
+    app.get('/post-count/:email', async (req, res) => {
+      const { email } = req.params;
+    
+      if (!email) {
+        return res.status(400).send({ error: 'User email is required' });
+      }
+    
+      try {
+        const postCount = await postCollection.countDocuments({ email: email });
+    
+        res.send(postCount);
+      } catch (error) {
+        console.error('Error fetching posts count:', error);
+        res.status(500).send({ error: 'Failed to fetch posts count' });
+      }
+    });
+    
     
   } finally {
     //await client.close();
