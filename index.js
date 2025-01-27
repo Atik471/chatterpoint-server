@@ -516,6 +516,23 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch" });
       }
     });
+
+    app.post("/tags", async (req, res) => {
+      const newTag = req.body;
+
+      try {
+        const result = await tagCollection.insertOne(newTag);
+
+        res
+          .status(201)
+          .json({ message: "Tag addedsuccessfully!", result: result });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+
   } finally {
     //await client.close();
   }
