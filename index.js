@@ -347,10 +347,20 @@ async function run() {
     });
 
     app.get("/report", async (req, res) => {
+      const { page = 1, limit = 5 } = req.query;
+      const skip = (page - 1) * limit;
       try {
-        const reports = await reportCollection.find().toArray();
+        const reports = await reportCollection.find().skip(skip)
+        .limit(Number(limit)).toArray();
 
-        res.status(200).json(reports);
+        const totalReports = await reportCollection.countDocuments({});
+
+        res.status(200).json({
+          reports,
+          totalReports,
+          totalPages: Math.ceil(totalReports / limit),
+          currentPage: page,
+        });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
