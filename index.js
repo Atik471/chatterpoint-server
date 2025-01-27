@@ -19,6 +19,12 @@ const client = new MongoClient(uri, {
   },
 });
 
+app.get("/", (req, res) => {
+  res.send("ChatterPoint API");
+});
+
+const port = process.env.PORT || 5000;
+
 async function run() {
   try {
     //await client.connect();
@@ -29,6 +35,7 @@ async function run() {
     const commentCollection = ChatterPoint.collection("comments");
     const announcementCollection = ChatterPoint.collection("announcements");
     const reportCollection = ChatterPoint.collection("reports");
+    const tagCollection = ChatterPoint.collection("tags");
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -498,17 +505,22 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch posts count" });
       }
     });
+
+    app.get("/tags", async (req, res) => {
+      try {
+        const tags = await tagCollection.find({}).toArray();
+        
+        res.status(200).send(tags);
+      } catch (error) {
+        console.error("Error fetching:", error);
+        res.status(500).send({ error: "Failed to fetch" });
+      }
+    });
   } finally {
     //await client.close();
   }
 }
 run().catch(console.dir);
-
-const port = process.env.PORT || 5000;
-
-app.get("/", (req, res) => {
-  res.send("ChatterPoint API");
-});
 
 app.listen(port, () => {
   console.log(`ChatterPoint is running on port: http://localhost:${port}`);
