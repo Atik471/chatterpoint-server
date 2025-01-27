@@ -233,16 +233,25 @@ async function run() {
 
     app.get("/comments/:post", async (req, res) => {
       const postId = req.params.post;
+      const { page = 1, limit = 5} = req.query;
+      const skip = (page - 1) * limit;
 
       try {
         const comments = await commentCollection
           .find({ post: postId })
           .sort({ _id: -1 })
+          .skip(skip)
+          .limit(Number(limit))
           .toArray();
+
+        const totalComments = await commentCollection.countDocuments({ post: postId });
 
         res.status(200).json({
           message: "Comments fetched successfully!",
           comments,
+          totalComments,
+          totalPages: Math.ceil(totalComments / limit),
+          currentPage: page,
         });
       } catch (error) {
         res.status(500).json({ message: "Server error. Please try again." });
