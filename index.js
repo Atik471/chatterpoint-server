@@ -434,7 +434,27 @@ async function run() {
       try {
         const postCount = await postCollection.countDocuments({ email: email });
     
-        res.send(postCount);
+        res.status(200).send({
+          postCount: postCount,
+        });
+      } catch (error) {
+        console.error('Error fetching posts count:', error);
+        res.status(500).send({ error: 'Failed to fetch posts count' });
+      }
+    });
+
+    app.get('/stats', async (req, res) => {
+
+      try {
+        const postCount = await postCollection.countDocuments({});
+        const userCount = await userCollection.countDocuments({});
+        const commentCount = await commentCollection.countDocuments({});
+    
+        res.status(200).send({
+          userCount,
+          postCount,
+          commentCount
+        });
       } catch (error) {
         console.error('Error fetching posts count:', error);
         res.status(500).send({ error: 'Failed to fetch posts count' });
