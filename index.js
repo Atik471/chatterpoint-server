@@ -147,17 +147,26 @@ async function run() {
     });
 
     app.get("/posts", async (req, res) => {
-      const { page = 1, limit = 5, tag } = req.query;
+      const { page = 1, limit = 5, tag, sort  } = req.query;
       const skip = (page - 1) * limit;
+
+      const sortField = sort === "true" ? { popularity: -1 } : { _id: -1 };
 
       try {
         const filter = tag ? { tags: tag } : {};
 
         const posts = await postCollection
-          .find(filter)
-          .sort({ _id: -1 })
-          .skip(skip)
-          .limit(Number(limit))
+        .aggregate([
+          { $match: filter },
+          {
+            $addFields: {
+              popularity: { $subtract: ["$upvote", "$downvote"] },
+            },
+          },
+          { $sort: sortField },
+          { $skip: skip },
+          { $limit: Number(limit) },
+        ])
           .toArray();
 
         const totalPosts = await postCollection.countDocuments();
@@ -543,6 +552,18 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch posts count" });
       }
     });
+
+    // app.get("/count-comment/:postId", async (req, res) => {
+    //   const { postId } = req.query;
+    //   try {
+    //     const commentCount = await commentCollection.countDocuments({});
+
+    //     res.status(200).json(commentCount);
+    //   } catch (error) {
+    //     res.status(500).json({ message: "Server error. Please try again." });
+    //     console.log(error);
+    //   }
+    // });
 
     app.get("/stats", verifyToken, async (req, res) => {
       try {
