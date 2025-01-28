@@ -7,50 +7,54 @@ const cookieParser = require("cookie-parser");
 
 const app = express();
 
+app.use(cookieParser());
 app.use(express.json());
+
+const allowedOrigins = ["http://localhost:5173", "https://chatterpoint.web.app"];
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://chatterpoint.web.app/"],
+    origin: allowedOrigins , 
     credentials: true,
   })
 );
 
-app.use(cookieParser());
-app.use(express.json());
 
 app.post("/jwt", (req, res) => {
   const email = req.body;
   const token = jwt.sign(email, process.env.JWT_SECRET, { expiresIn: "12h" });
   res
-    .cookie("token", token, {
-      httpOnly: true,
-      // secure: false,
-      secure: process.env.NODE_ENV === "production",
-    })
-    .send({ jwtSuccess: true });
+    // .cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   // sameSite: "none",
+    // })
+    .send({ jwtSuccess: true, token });
 });
 
 
 const verifyToken = (req, res, next) => {
-  const token = req?.cookies?.token;
-  
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized access: No token provided" });
+  }
+
+  const token = authHeader.split(' ')[1];
+
   if (!token) {
     return res.status(401).send({ message: "Unauthorized access: No token provided" });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    // console.log(decoded)
     if (err) {
-      //console.error("Token verification failed:", err.message);
       return res.status(401).send({ message: "Unauthorized access: Invalid token" });
     }
+
     req.email = decoded;
-    
     next();
   });
 };
-
-module.exports = verifyToken;
 
 
 
@@ -87,14 +91,14 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
 
-    app.post("/logout", (req, res) => {
-      res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
-      return res.status(200).send({ message: "Logged out successfully" });
-    });
+    // app.post("/logout", (req, res) => {
+    //   res.clearCookie("token", {
+    //     httpOnly: true,
+    //     secure: process.env.NODE_ENV === "production",
+    //     sameSite: "strict",
+    //   });
+    //   return res.status(200).send({ message: "Logged out successfully" });
+    // });
 
     app.post("/users/register", async (req, res) => {
       const newUser = req.body;
