@@ -2,11 +2,57 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.SK_STRIPE);
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://chatterpoint.web.app/"],
+    credentials: true,
+  })
+);
+
+app.use(cookieParser());
+app.use(express.json());
+
+app.post("/jwt", (req, res) => {
+  const email = req.body;
+  const token = jwt.sign(email, process.env.JWT_SECRET, { expiresIn: "12h" });
+  res
+    .cookie("token", token, {
+      httpOnly: true,
+      // secure: false,
+      secure: process.env.NODE_ENV === "production",
+    })
+    .send({ jwtSuccess: true });
+});
+
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access: No token provided" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    // console.log(decoded)
+    if (err) {
+      //console.error("Token verification failed:", err.message);
+      return res.status(401).send({ message: "Unauthorized access: Invalid token" });
+    }
+    req.email = decoded;
+    
+    next();
+  });
+};
+
+module.exports = verifyToken;
+
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8nuar.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -40,6 +86,15 @@ async function run() {
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+
+    app.post("/logout", (req, res) => {
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
+      return res.status(200).send({ message: "Logged out successfully" });
+    });
 
     app.post("/users/register", async (req, res) => {
       const newUser = req.body;
@@ -77,7 +132,7 @@ async function run() {
       }
     });
 
-    app.post("/posts", async (req, res) => {
+    app.post("/posts", verifyToken, async (req, res) => {
       const newPost = req.body;
 
       try {
@@ -120,7 +175,7 @@ async function run() {
       }
     });
 
-    app.get("/my-posts/:email", async (req, res) => {
+    app.get("/my-posts/:email", verifyToken,  async (req, res) => { //verifyToken,
       const email = req.params.email;
       const { page = 1, limit = 5 } = req.query;
       const skip = (Number(page) - 1) * Number(limit);
@@ -174,7 +229,7 @@ async function run() {
       }
     });
 
-    /*app.post("/post/:id/vote", async (req, res) => {
+    app.post("/post/:id/vote", async (req, res) => {
       const id = req.params.id;
       const vote = req.body.vote;
 
@@ -196,7 +251,7 @@ async function run() {
           return res.status(404).json({ message: "Post not found" });
         }
 
-        const updateField = vote === 1 ? { upvote: 1 } : { downvote: -1 };
+        const updateField = vote === 1 ? { upvote: 1 } : { downvote: 1 };
         const result = await postCollection.updateOne(
           { _id: objectId },
           { $inc: updateField }
@@ -209,7 +264,7 @@ async function run() {
         res.status(500).json({ message: "Server error. Please try again." });
         console.log(error);
       }
-    });*/
+    });
 
     app.post("/comment", async (req, res) => {
       const newComment = req.body;
@@ -291,7 +346,7 @@ async function run() {
       }
     });
 
-    app.put("/user/update-role/:id", async (req, res) => {
+    app.put("/user/update-role/:id", verifyToken, async (req, res) => {
       const userId = req.params.id;
       const { role } = req.body;
 
@@ -320,7 +375,7 @@ async function run() {
       }
     });
 
-    app.post("/announcements", async (req, res) => {
+    app.post("/announcements", verifyToken, async (req, res) => {
       const newAnnouncement = req.body;
 
       try {
@@ -470,7 +525,7 @@ async function run() {
       }
     });
 
-    app.get("/post-count/:email", async (req, res) => {
+    app.get("/post-count/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
 
       if (!email) {
@@ -489,7 +544,7 @@ async function run() {
       }
     });
 
-    app.get("/stats", async (req, res) => {
+    app.get("/stats", verifyToken, async (req, res) => {
       try {
         const postCount = await postCollection.countDocuments({});
         const userCount = await userCollection.countDocuments({});
@@ -517,7 +572,7 @@ async function run() {
       }
     });
 
-    app.post("/tags", async (req, res) => {
+    app.post("/tags", verifyToken, async (req, res) => {
       const newTag = req.body;
 
       try {
@@ -531,7 +586,6 @@ async function run() {
         console.log(error);
       }
     });
-
 
   } finally {
     //await client.close();
