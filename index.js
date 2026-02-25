@@ -86,6 +86,21 @@ async function run() {
     const announcementCollection = ChatterPoint.collection("announcements");
     const reportCollection = ChatterPoint.collection("reports");
     const tagCollection = ChatterPoint.collection("tags");
+    const notificationCollection = ChatterPoint.collection("notifications");
+
+    // Helper: create a notification (fire-and-forget)
+    const createNotification = (recipientEmail, type, payload) => {
+      if (!recipientEmail) return;
+      notificationCollection
+        .insertOne({
+          recipientEmail,
+          type,          // "comment" | "follow"
+          payload,      // { actorName, actorPhoto, postId?, postTitle? }
+          read: false,
+          createdAt: new Date(),
+        })
+        .catch((err) => console.error("Notification insert error:", err));
+    };
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -347,13 +362,26 @@ async function run() {
       try {
         const result = await commentCollection.insertOne(newComment);
 
-        const updateResult = await postCollection.updateOne(
+        const post = await postCollection.findOne({ _id: new ObjectId(postId) });
+
+        if (!post) {
+          return res.status(404).json({ message: "Post not found." });
+        }
+
+        await postCollection.updateOne(
           { _id: new ObjectId(postId) },
           { $inc: { comments: 1 } }
         );
 
-        if (updateResult.modifiedCount === 0) {
-          return res.status(404).json({ message: "Post not found." });
+        // Notify post owner (skip if commenter is the owner)
+        if (post.email && post.email !== newComment.email) {
+          createNotification(post.email, "comment", {
+            actorName: newComment.name,
+            actorPhoto: newComment.photoURL,
+            actorEmail: newComment.email,
+            postId,
+            postTitle: post.title,
+          });
         }
 
         res
@@ -483,6 +511,13 @@ async function run() {
             { $addToSet: { followers: followerEmail } }
           ),
         ]);
+
+        // Notify the person being followed
+        createNotification(targetEmail, "follow", {
+          actorName: follower.name,
+          actorPhoto: follower.photoURL,
+          actorEmail: followerEmail,
+        });
 
         res.status(200).json({ message: "Followed successfully." });
       } catch (error) {
@@ -742,6 +777,43 @@ async function run() {
       } catch (error) {
         console.error("Error fetching posts count:", error);
         res.status(500).send({ error: "Failed to fetch posts count" });
+      }
+    });
+
+    // Get notifications for a user (latest 30)
+    app.get("/notifications/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      try {
+        const notifications = await notificationCollection
+          .find({ recipientEmail: email })
+          .sort({ createdAt: -1 })
+          .limit(30)
+          .toArray();
+
+        const unreadCount = await notificationCollection.countDocuments({
+          recipientEmail: email,
+          read: false,
+        });
+
+        res.status(200).json({ notifications, unreadCount });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error." });
+      }
+    });
+
+    // Mark all notifications as read for a user
+    app.patch("/notifications/read/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      try {
+        await notificationCollection.updateMany(
+          { recipientEmail: email, read: false },
+          { $set: { read: true } }
+        );
+        res.status(200).json({ message: "Marked as read." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error." });
       }
     });
 
