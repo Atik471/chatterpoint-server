@@ -151,6 +151,56 @@ async function run() {
       }
     });
 
+    // Update editable profile fields
+    app.put("/user/profile/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.email.email !== email) {
+        return res.status(403).json({ message: "Forbidden." });
+      }
+
+      const { bio, skills, githubUrl, linkedinUrl, websiteUrl, displayName } = req.body;
+
+      // Basic URL safety check
+      const safeUrl = (url) => {
+        if (!url) return "";
+        try {
+          const u = new URL(url);
+          return ["http:", "https:"].includes(u.protocol) ? url : "";
+        } catch {
+          return "";
+        }
+      };
+
+      const updateFields = {
+        bio: (bio || "").slice(0, 300),
+        skills: Array.isArray(skills) ? skills.slice(0, 15) : [],
+        githubUrl: safeUrl(githubUrl),
+        linkedinUrl: safeUrl(linkedinUrl),
+        websiteUrl: safeUrl(websiteUrl),
+      };
+
+      if (displayName && displayName.trim()) {
+        updateFields.displayName = displayName.trim().slice(0, 50);
+      }
+
+      try {
+        const result = await userCollection.updateOne(
+          { email },
+          { $set: updateFields }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "User not found." });
+        }
+
+        res.status(200).json({ message: "Profile updated successfully." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error." });
+      }
+    });
+
     app.post("/posts", verifyToken, async (req, res) => {
       const newPost = req.body;
 
@@ -557,7 +607,7 @@ async function run() {
       try {
         const user = await userCollection.findOne(
           { email },
-          { projection: { _id: 1, name: 1, email: 1, photoURL: 1, badges: 1, role: 1, followers: 1, following: 1 } }
+          { projection: { _id: 1, name: 1, email: 1, photoURL: 1, badges: 1, role: 1, followers: 1, following: 1, bio: 1, skills: 1, githubUrl: 1, linkedinUrl: 1, websiteUrl: 1, displayName: 1 } }
         );
 
         if (!user) {
