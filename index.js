@@ -745,10 +745,43 @@ async function run() {
       }
     });
 
+    // Global search across posts, users, and tags
+    app.get("/search", async (req, res) => {
+      const q = (req.query.q || "").trim();
+      if (!q) return res.status(400).json({ message: "Query is required." });
+
+      const regex = new RegExp(q, "i");
+
+      try {
+        const [posts, users, tags] = await Promise.all([
+          postCollection
+            .find({ $or: [{ title: regex }, { tags: regex }] })
+            .sort({ _id: -1 })
+            .limit(5)
+            .project({ title: 1, tags: 1, email: 1, name: 1, photoURL: 1, date: 1 })
+            .toArray(),
+          userCollection
+            .find({ $or: [{ name: regex }, { email: regex }] })
+            .limit(5)
+            .project({ name: 1, email: 1, photoURL: 1, badges: 1 })
+            .toArray(),
+          tagCollection
+            .find({ $or: [{ name: regex }, { tag: regex }] })
+            .limit(5)
+            .toArray(),
+        ]);
+
+        res.status(200).json({ posts, users, tags });
+      } catch (error) {
+        console.error("Search error:", error);
+        res.status(500).json({ message: "Search failed." });
+      }
+    });
+
     app.get("/tags", async (req, res) => {
       try {
         const tags = await tagCollection.find({}).toArray();
-        
+
         res.status(200).send(tags);
       } catch (error) {
         console.error("Error fetching:", error);
