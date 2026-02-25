@@ -449,6 +449,104 @@ async function run() {
       }
     });
 
+    // Follow a user
+    app.post("/follow/:targetEmail", verifyToken, async (req, res) => {
+      const targetEmail = req.params.targetEmail;
+      const followerEmail = req.email.email;
+
+      if (followerEmail === targetEmail) {
+        return res.status(400).json({ message: "You cannot follow yourself." });
+      }
+
+      try {
+        const [target, follower] = await Promise.all([
+          userCollection.findOne({ email: targetEmail }),
+          userCollection.findOne({ email: followerEmail }),
+        ]);
+
+        if (!target || !follower) {
+          return res.status(404).json({ message: "User not found." });
+        }
+
+        const alreadyFollowing = (follower.following || []).includes(targetEmail);
+        if (alreadyFollowing) {
+          return res.status(400).json({ message: "Already following." });
+        }
+
+        await Promise.all([
+          userCollection.updateOne(
+            { email: followerEmail },
+            { $addToSet: { following: targetEmail } }
+          ),
+          userCollection.updateOne(
+            { email: targetEmail },
+            { $addToSet: { followers: followerEmail } }
+          ),
+        ]);
+
+        res.status(200).json({ message: "Followed successfully." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error." });
+      }
+    });
+
+    // Unfollow a user
+    app.delete("/follow/:targetEmail", verifyToken, async (req, res) => {
+      const targetEmail = req.params.targetEmail;
+      const followerEmail = req.email.email;
+
+      try {
+        await Promise.all([
+          userCollection.updateOne(
+            { email: followerEmail },
+            { $pull: { following: targetEmail } }
+          ),
+          userCollection.updateOne(
+            { email: targetEmail },
+            { $pull: { followers: followerEmail } }
+          ),
+        ]);
+
+        res.status(200).json({ message: "Unfollowed successfully." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error." });
+      }
+    });
+
+    // Public profile by email — returns user + recent posts
+    app.get("/profile/:email", async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const user = await userCollection.findOne(
+          { email },
+          { projection: { _id: 1, name: 1, email: 1, photoURL: 1, badges: 1, role: 1, followers: 1, following: 1 } }
+        );
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found." });
+        }
+
+        const recentPosts = await postCollection
+          .find({ email })
+          .sort({ _id: -1 })
+          .limit(5)
+          .toArray();
+
+        res.status(200).json({
+          ...user,
+          followerCount: (user.followers || []).length,
+          followingCount: (user.following || []).length,
+          recentPosts,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error." });
+      }
+    });
+
     app.post("/announcements", verifyToken, async (req, res) => {
       const newAnnouncement = req.body;
 
