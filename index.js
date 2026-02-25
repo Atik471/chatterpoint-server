@@ -242,6 +242,67 @@ async function run() {
       }
     });
 
+    app.put("/post/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const { title, tags, description } = req.body;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid Post ID format" });
+      }
+
+      try {
+        const objectId = new ObjectId(id);
+        const post = await postCollection.findOne({ _id: objectId });
+
+        if (!post) {
+          return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post.email !== req.email.email) {
+          return res.status(403).json({ message: "Forbidden: you do not own this post" });
+        }
+
+        const result = await postCollection.updateOne(
+          { _id: objectId },
+          { $set: { title, tags, description, edited: true } }
+        );
+
+        res.status(200).json({ message: "Post updated successfully!", result });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
+    app.delete("/post/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid Post ID format" });
+      }
+
+      try {
+        const objectId = new ObjectId(id);
+        const post = await postCollection.findOne({ _id: objectId });
+
+        if (!post) {
+          return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post.email !== req.email.email) {
+          return res.status(403).json({ message: "Forbidden: you do not own this post" });
+        }
+
+        await postCollection.deleteOne({ _id: objectId });
+        await commentCollection.deleteMany({ post: id });
+
+        res.status(200).json({ message: "Post deleted successfully!" });
+      } catch (error) {
+        res.status(500).json({ message: "Server error. Please try again." });
+        console.log(error);
+      }
+    });
+
     app.post("/post/:id/vote", async (req, res) => {
       const id = req.params.id;
       const vote = req.body.vote;
